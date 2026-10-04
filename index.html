@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>音読リズムマーカー</title>
+<style>
+body{font-family:Arial,"Yu Gothic",Meiryo,sans-serif;margin:0;background:#eef2f7;color:#172033}
+header{background:#1e3a8a;color:white;padding:18px} header h1{margin:0;font-size:23px} header p{margin:5px 0 0}
+main{max-width:1050px;margin:auto;padding:16px}.card{background:white;border:1px solid #cbd5e1;border-radius:12px;padding:16px;margin-bottom:14px}
+button{border:0;border-radius:8px;padding:10px 13px;margin:4px;cursor:pointer;font-weight:bold}
+.blue{background:#2563eb;color:white}.green{background:#15803d;color:white}.orange{background:#c2410c;color:white}.purple{background:#7c3aed;color:white}.gray{background:#e2e8f0}.red{background:#fee2e2;color:#b91c1c}
+textarea{width:100%;min-height:150px;font-size:18px;line-height:1.7;padding:10px;border:1px solid #94a3b8;border-radius:8px;box-sizing:border-box}
+.words{border:1px solid #cbd5e1;border-radius:10px;padding:16px;min-height:100px;font-size:22px;line-height:2.6}
+.w{display:inline-block;padding:1px 5px;margin:2px;cursor:pointer;border-radius:5px}.w:hover{background:#e0f2fe}
+.teacher{font-weight:bold;background:#fef3c7;text-decoration:underline;text-decoration-thickness:3px}
+.student{font-weight:bold;background:#dbeafe}
+.model{font-weight:bold;background:#dcfce7;text-decoration:underline;text-decoration-thickness:3px}
+.note{background:#eff6ff;border-left:4px solid #2563eb;padding:10px;margin:10px 0;font-size:14px}
+.hidden{display:none}.status{background:#f1f5f9;padding:9px;border-radius:8px;font-size:13px}
+.badge{display:inline-block;padding:6px 10px;border-radius:99px;background:#dbeafe;color:#1d4ed8;font-weight:bold}
+.compare{display:flex;gap:10px;flex-wrap:wrap}.result{background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;min-width:160px}
+.result b{font-size:25px}small{color:#64748b}
+
+.sharebox{background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-top:10px}
+.shareurl{width:100%;box-sizing:border-box;padding:9px;border:1px solid #94a3b8;border-radius:7px;font-size:13px}
+.qrwrap{text-align:center;margin-top:12px}.qrwrap img{max-width:300px;width:100%;height:auto;border:8px solid white;box-shadow:0 1px 5px rgba(0,0,0,.15)}
+</style>
+</head>
+<body>
+<header><h1>音読リズムマーカー</h1><p>強く読む単語をタップして、英語のリズムを意識しよう。</p></header>
+<main>
+
+<div class="card">
+<span id="badge" class="badge">教師モード</span>
+<button class="orange" onclick="mode('teacher')">教師モード</button>
+<button class="blue" onclick="mode('student')">生徒モード</button>
+<div id="status" class="status">本文を入力してください。</div>
+</div>
+
+<section id="teacherPanel">
+<div class="card">
+<h2>① 本文を作成</h2>
+<textarea id="input" placeholder="英文を入力してください。"></textarea>
+<button class="gray" onclick="example()">例文を入れる</button>
+<button class="blue" onclick="apply()">英文を反映</button>
+<button class="red" onclick="clearText()">本文をクリア</button>
+</div>
+
+<div class="card">
+<h2>② 教師の例マーク</h2>
+<div class="note">強く読む単語をタップしてください。黄色の単語が教師の例になります。</div>
+<div id="teacherWords" class="words">本文を反映してください。</div>
+<button class="red" onclick="resetModel()">教師の例をリセット</button>
+</div>
+
+<div class="card">
+<h2>③ 教師用データ</h2>
+<div class="note"><b>おすすめ：</b>「教師用データを保存」を押すと、本文＋模範マークが入った<b>HTMLファイル</b>ができます。Wordでは開きません。保存したHTMLをダブルクリックして使います。</div>
+<button class="green" onclick="saveLesson()">教師用データを保存</button>
+<button class="purple" onclick="makeShareQR()">QRコードで共有</button>
+<button class="orange" onclick="openLesson()">教師用データを読み込む</button>
+<input id="lessonFile" type="file" accept=".html,.htm" style="display:none">
+<div id="shareBox" class="sharebox hidden">
+<b>共有用QRコード</b>
+<div class="note">このQRコードには「本文＋教師の例」が入った共有用URLが入ります。生徒は読み取るだけで教材を開けます。</div>
+<input id="shareUrl" class="shareurl" readonly>
+<button class="gray" onclick="copyShareUrl()">共有URLをコピー</button>
+<div id="qrWrap" class="qrwrap"></div>
+<small>※QRコードは外部のQR生成サービスを利用して表示します。授業用の英文がURLに含まれるため、個人情報や機密情報は入れないでください。</small>
+</div>
+</div>
+</section>
+
+<section id="studentPanel" class="hidden">
+<div class="card">
+<h2>④ あなたの答え</h2>
+<div class="note">音声を聞き、「特に強く聞こえた」と思う単語をタップしてください。</div>
+<div id="studentWords" class="words">教師用データを読み込んでください。</div>
+<button class="red" onclick="resetStudent()">自分の答えをリセット</button>
+<button id="modelToggle" class="green" onclick="showModel()">教師の例を表示</button>
+</div>
+
+<div class="card">
+<h2>⑤ 生徒用データ</h2>
+<button class="blue" onclick="saveStudent()">生徒用データを保存</button>
+<button class="gray" onclick="openStudent()">生徒用データを読み込む</button>
+<input id="studentFile" type="file" accept=".json" style="display:none">
+<small>※生徒用データはこのアプリから読み込みます。Wordで開く必要はありません。</small>
+</div>
+</section>
+
+</main>
+<script>
+const INITIAL_DATA={"app": "english-rhythm-marker", "version": 3, "scriptText": "", "modelMarks": [], "lessonName": ""};
+let text="",model=[],student=[],modelShown=false;
+
+function setStatus(s){document.getElementById("status").textContent=s}
+function mode(m){
+ document.getElementById("teacherPanel").classList.toggle("hidden",m!=="teacher");
+ document.getElementById("studentPanel").classList.toggle("hidden",m==="teacher");
+ document.getElementById("badge").textContent=m==="teacher"?"教師モード":"生徒モード";
+ render();
+}
+function example(){
+ document.getElementById("input").value="I usually get up at seven and have breakfast with my family.\nI leave home at eight and walk to school with my friend.";
+ apply();
+}
+function apply(){
+ text=document.getElementById("input").value.trim();model=[];student=[];modelShown=false;render();
+ setStatus("本文を反映しました。教師モードで模範マークを作成できます。");
+}
+function clearText(){text="";model=[];student=[];document.getElementById("input").value="";render()}
+function words(){return text.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g)||[]}
+function draw(id,type){
+ const box=document.getElementById(id);
+ box.innerHTML="";
+ if(!text){box.textContent="本文を反映してください。";return}
+
+ const parts=text.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*|[^A-Za-z0-9]+/g)||[];
+ let i=0;
+
+ parts.forEach(p=>{
+   if(/^[A-Za-z0-9]/.test(p)){
+     const span=document.createElement("span");
+     span.textContent=p;
+     span.className="w";
+
+     // 教師モード：教師の例をマーク
+     if(type==="t" && model.includes(i)){
+       span.classList.add("teacher");
+     }
+
+     // 生徒モード：あなたの答えをマーク
+     if(type==="s" && student.includes(i)){
+       span.classList.add("student");
+     }
+
+     // 教師の例を表示した場合
+     if(type==="s" && modelShown && model.includes(i)){
+       span.classList.add("model");
+     }
+
+     const wordIndex=i;
+     span.addEventListener("click",function(){
+       const arr=(type==="t") ? model : student;
+       const pos=arr.indexOf(wordIndex);
+
+       if(pos===-1){
+         arr.push(wordIndex);
+       }else{
+         arr.splice(pos,1);
+       }
+
+       arr.sort((a,b)=>a-b);
+       render();
+     });
+
+     box.appendChild(span);
+     i++;
+   }else{
+     // 改行を保持する
+     for(let j=0;j<p.length;j++){
+       if(p[j]==="\n"){
+         box.appendChild(document.createElement("br"));
+       }else if(p[j]==="\r"){
+         // CRは無視（CRLFの重複改行を防止）
+       }else{
+         box.appendChild(document.createTextNode(p[j]));
+       }
+     }
+   }
+ });
+}
+function render(){draw("teacherWords","t");draw("studentWords","s")}
+function resetModel(){model=[];modelShown=false;render()}
+function resetStudent(){
+ student=[];
+ modelShown=false;
+ document.getElementById("modelToggle").textContent="教師の例を表示";
+ render();
+}
+function showModel(){
+ modelShown=!modelShown;
+ render();
+ const btn=document.getElementById("modelToggle");
+ btn.textContent=modelShown ? "教師の例を非表示" : "教師の例を表示";
+ setStatus(modelShown ? "教師の例を表示しました。" : "教師の例を非表示にしました。");
+}
+function data(){return{app:"english-rhythm-marker",version:3,scriptText:text,modelMarks:model,lessonName:"授業用データ"}}
+function makeLesson(d){
+ let src=document.documentElement.outerHTML;
+ let embedded=JSON.stringify(d).replace(/</g,"\\u003c");
+ src=src.replace(/const INITIAL_DATA=.*?;\s*/,"const INITIAL_DATA="+embedded+";\n");
+ return "<!doctype html>\n"+src;
+}
+function saveLesson(){
+ if(!text){alert("先に本文を入力してください。");return}
+ let name=prompt("授業名を入力してください。","英語リズム授業");
+ if(name===null)return;
+ let d=data();d.lessonName=name;
+ let blob=new Blob([makeLesson(d)],{type:"text/html;charset=utf-8"});
+ let a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download=(name.replace(/[\\\\/:*?\"<>|]/g,"_")||"授業用データ")+"_授業用.html";a.click();
+ setStatus("教師用データをHTMLとして保存しました。次回はそのHTMLをダブルクリックして使えます。");
+}
+function openLesson(){document.getElementById("lessonFile").click()}
+document.getElementById("lessonFile").onchange=e=>{
+ let f=e.target.files[0];if(!f)return;let r=new FileReader();
+ r.onload=()=>{let m=r.result.match(/const INITIAL_DATA=(.*?);\\s*\\n/);if(!m){alert("授業用HTMLではありません。");return}
+ try{load(JSON.parse(m[1]),f.name)}catch(x){alert("読み込みに失敗しました。")}};
+ r.readAsText(f);e.target.value="";
+}
+function load(d,name){
+ text=d.scriptText||"";model=d.modelMarks||[];student=[];modelShown=false;document.getElementById("input").value=text;
+ mode("teacher");setStatus("教師用データを読み込みました："+name);
+}
+function saveStudent(){
+ if(!text){alert("本文がありません。");return}
+ let d={app:"english-rhythm-marker-student",version:3,scriptText:text,studentMarks:student};
+ let b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});
+ let a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="生徒用データ.json";a.click();
+}
+function openStudent(){document.getElementById("studentFile").click()}
+document.getElementById("studentFile").onchange=e=>{
+ let f=e.target.files[0];if(!f)return;let r=new FileReader();
+ r.onload=()=>{try{let d=JSON.parse(r.result);if(d.app!=="english-rhythm-marker-student")throw 0;text=d.scriptText||"";student=d.studentMarks||[];modelShown=false;document.getElementById("input").value=text;document.getElementById("modelToggle").textContent="教師の例を表示";mode("student");setStatus("生徒用データを読み込みました。")}catch(x){alert("生徒用データではありません。")}};
+ r.readAsText(f);e.target.value="";
+}
+function bytesToBase64Url(bytes){
+ let binary="";const chunk=0x8000;
+ for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+ return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function base64UrlToBytes(str){
+ str=str.replace(/-/g,"+").replace(/_/g,"/");
+ while(str.length%4)str+="=";
+ const bin=atob(str),out=new Uint8Array(bin.length);
+ for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
+ return out;
+}
+async function encodeShareData(d){
+ const json=JSON.stringify(d);
+ if("CompressionStream" in window){
+  const cs=new CompressionStream("gzip"),w=cs.writable.getWriter();
+  w.write(new TextEncoder().encode(json));w.close();
+  const buf=new Uint8Array(await new Response(cs.readable).arrayBuffer());
+  return "g."+bytesToBase64Url(buf);
+ }
+ return "j."+bytesToBase64Url(new TextEncoder().encode(json));
+}
+async function decodeShareData(payload){
+ try{
+  if(payload.startsWith("g.")&&"DecompressionStream" in window){
+   const ds=new DecompressionStream("gzip"),w=ds.writable.getWriter();
+   w.write(base64UrlToBytes(payload.slice(2)));w.close();
+   return JSON.parse(await new Response(ds.readable).text());
+  }
+  if(payload.startsWith("j."))return JSON.parse(new TextDecoder().decode(base64UrlToBytes(payload.slice(2))));
+ }catch(e){}
+ return null;
+}
+async function makeShareQR(){
+ if(!text){alert("先に本文を入力してください。");return}
+ if(location.protocol==="file:"){
+  alert("QRコード共有は、GitHub Pagesなどで公開したWebページを開いているときに利用できます。まず公開ページを開いてから「QRコードで共有」を押してください。");
+  return;
+ }
+ const d=data(),payload=await encodeShareData(d),u=new URL(location.href);
+ u.hash="lesson="+payload;
+ const shareUrl=u.toString();
+ document.getElementById("shareBox").classList.remove("hidden");
+ document.getElementById("shareUrl").value=shareUrl;
+ const qr="https://quickchart.io/qr?size=320&margin=2&text="+encodeURIComponent(shareUrl);
+ document.getElementById("qrWrap").innerHTML='<img src="'+qr+'" alt="共有用QRコード">';
+ setStatus("共有用QRコードを作成しました。生徒はこのQRコードを読み取ってください。");
+}
+async function copyShareUrl(){
+ const v=document.getElementById("shareUrl").value;if(!v)return;
+ try{await navigator.clipboard.writeText(v)}catch(e){document.getElementById("shareUrl").select();document.execCommand("copy")}
+ setStatus("共有URLをコピーしました。");
+}
+async function loadFromShareHash(){
+ if(!location.hash.startsWith("#lesson="))return false;
+ const d=await decodeShareData(location.hash.slice(8));
+ if(!d||d.app!=="english-rhythm-marker"){alert("共有データを読み込めませんでした。");return false}
+ text=d.scriptText||"";model=d.modelMarks||[];student=[];modelShown=false;
+ document.getElementById("input").value=text;
+ mode("student");
+ setStatus("共有された授業用教材を読み込みました。");
+ return true;
+}
+async function init(){
+ if(INITIAL_DATA&&INITIAL_DATA.scriptText){text=INITIAL_DATA.scriptText;model=INITIAL_DATA.modelMarks||[];document.getElementById("input").value=text}
+ render();
+ await loadFromShareHash();
+}
+init();
+</script>
+</body></html>
